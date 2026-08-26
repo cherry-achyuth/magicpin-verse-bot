@@ -1,5 +1,10 @@
 # magicpin AI Challenge — "Build Vera Better" — Project Package
 
+- **Live Service URL**: [`https://magicpin-verse-bot.onrender.com`](https://magicpin-verse-bot.onrender.com)
+- **Health Check**: [`https://magicpin-verse-bot.onrender.com/v1/healthz`](https://magicpin-verse-bot.onrender.com/v1/healthz)
+- **Interactive API Docs (Swagger)**: [`https://magicpin-verse-bot.onrender.com/docs`](https://magicpin-verse-bot.onrender.com/docs)
+- **GitHub Repository**: [`https://github.com/cherry-achyuth/magicpin-verse-bot`](https://github.com/cherry-achyuth/magicpin-verse-bot)
+
 This folder is a ready-to-open workspace for building your challenge submission with
 **Google Antigravity**. Everything Antigravity needs to work correctly, without
 guessing or hallucinating requirements, is already here.

@@ -2,6 +2,14 @@
 
 This project builds Vera, an autonomous merchant engagement assistant for magicpin. Vera composes highly specific, data-backed messages that prompt merchants and their customers to take action.
 
+## 🚀 Live Deployment & Links
+
+- **Live Service URL**: [`https://magicpin-verse-bot.onrender.com`](https://magicpin-verse-bot.onrender.com)
+- **Health Check**: [`https://magicpin-verse-bot.onrender.com/v1/healthz`](https://magicpin-verse-bot.onrender.com/v1/healthz)
+- **Metadata**: [`https://magicpin-verse-bot.onrender.com/v1/metadata`](https://magicpin-verse-bot.onrender.com/v1/metadata)
+- **Interactive API Docs (Swagger)**: [`https://magicpin-verse-bot.onrender.com/docs`](https://magicpin-verse-bot.onrender.com/docs)
+- **GitHub Repository**: [`https://github.com/cherry-achyuth/magicpin-verse-bot`](https://github.com/cherry-achyuth/magicpin-verse-bot)
+
 ## 1. Approach and Architecture
 
 Vera combines four context layers into every generated message:
