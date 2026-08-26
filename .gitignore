@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+dataset/expanded/
+submission/local_eval_report.txt
+*.log
+.DS_Store
+python/
+*.tar.gz
+get-pip.py
+
