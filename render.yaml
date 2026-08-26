@@ -1,8 +1,8 @@
-﻿services:
+services:
   - type: web
     name: magicpin-vera-bot
     env: python
-    buildCommand: pip install -r submission/requirements.txt
+    buildCommand: pip install -r requirements.txt
     startCommand: uvicorn submission.bot:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: LLM_PROVIDER
