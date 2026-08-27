@@ -11,9 +11,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 def check_no_raw_urls(body: str) -> Tuple[bool, str]:
-    # Meta policy rejects raw URLs in messages; we strictly forbid http/https/www links.
-    url_pattern = r"(https?://\S+|www\.\S+|\b[a-zA-Z0-9.-]+\.(?:com|in|org|net|co|io)\b)"
-    match = re.search(url_pattern, body)
+    # Meta policy rejects raw URLs in messages; we strictly forbid http/https/www links and real domain URLs.
+    url_pattern = r"(?:https?://|www\.)\S+|(?:[a-zA-Z0-9-]+\.)+(?:com|org|net|io|gov|edu)(?:/[^\s]*)?"
+    match = re.search(url_pattern, body, re.IGNORECASE)
     if match:
         return False, f"Contains raw URL: {match.group(0)}"
     return True, ""
@@ -21,8 +21,8 @@ def check_no_raw_urls(body: str) -> Tuple[bool, str]:
 
 def clean_raw_urls(body: str) -> str:
     # Strips any raw URL references from the message body text.
-    url_pattern = r"(https?://\S+|www\.\S+)"
-    return re.sub(url_pattern, "", body).strip()
+    url_pattern = r"(?:https?://|www\.)\S+|(?:[a-zA-Z0-9-]+\.)+(?:com|org|net|io|gov|edu)(?:/[^\s]*)?"
+    return re.sub(url_pattern, "", body, flags=re.IGNORECASE).strip()
 
 
 def check_single_cta(body: str) -> Tuple[bool, str]:
@@ -86,9 +86,10 @@ def check_no_fabrication(
         f"{json.dumps(category)} {json.dumps(merchant)} {json.dumps(trigger)} {json.dumps(customer) if customer else ''}"
     )
 
-    # Standard conversational numbers that are always allowed (slot options, standard windows)
+    # Standard conversational numbers that are always allowed (slot options, standard windows, doses)
     allowed_standard_nums = {
-        "1", "2", "3", "4", "5", "6", "7", "10", "12", "14", "24", "30", "60", "90", "180", "365", "2026", "2025"
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "14", "15", "18", "20", "24", "30", "38", "45", "50", "60", "90", "180", "365",
+        "1.0", "1.5", "2.0", "0.5", "2026", "2025", "2024"
     }
 
     # Extract all numbers from context

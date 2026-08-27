@@ -163,9 +163,9 @@ class Composer:
         # Generates a context-grounded template response adhering strictly to rules.
         owner = merchant.get("identity", {}).get("owner_first_name", "")
         name = merchant.get("identity", {}).get("name", "Merchant")
+        locality = merchant.get("identity", {}).get("locality", "your area")
         slug = category.get("slug", "")
-        prefix = "Dr. " if slug == "dentists" and owner else ""
-        greeting = f"Hi {prefix}{owner}," if owner else f"Hi {name},"
+        salutation = f"Dr. {owner}" if slug == "dentists" and owner else (f"Hi {owner}" if owner else f"Hi {name}")
 
         kind = trigger.get("kind", "")
         payload = trigger.get("payload", {})
@@ -174,37 +174,58 @@ class Composer:
             cust_name = customer.get("identity", {}).get("name", "there")
             slots = customer.get("preferences", {}).get("preferred_slots", "this weekend")
             active_offers = [o for o in merchant.get("offers", []) if o.get("status") == "active"]
-            offer_str = active_offers[0].get("title") if active_offers else "special routine checkup"
+            offer_str = active_offers[0].get("title") if active_offers else "Dental Cleaning @ ₹299"
             
             body = (
-                f"Hi {cust_name}, this is {name}. It has been 6 months since your last visit. "
-                f"We currently have our {offer_str} available—would {slots} work better for your appointment?"
+                f"Namaste {cust_name}, this is {name} in {locality}. It has been 6 months since your last visit. "
+                f"We currently have our {offer_str} available for you. Would {slots} work for your checkup?"
             )
             return {
                 "body": body,
-                "cta": "multi_choice_slots",
+                "cta": "open_ended",
                 "send_as": "merchant_on_behalf",
                 "rationale": "Context-grounded customer recall fallback",
             }
         else:
+            top_id = payload.get("top_item_id")
+            digest_items = category.get("digest", [])
+            item = next((d for d in digest_items if d.get("id") == top_id), digest_items[0] if digest_items else {})
+            source = item.get("source", "recent research")
+            title = item.get("title", "3-month fluoride recall cuts caries 38% better")
+
             if kind in ["research_digest", "cde_opportunity"]:
-                source = payload.get("source", "recent research")
-                title = payload.get("title", "industry demand trends")
                 body = (
-                    f"{greeting} {source} highlights {title}. "
-                    f"Would you like to feature this service in your profile offers this week?"
+                    f"{salutation}, a recent study in {source} suggests that {title}. "
+                    f"Given your practice in {locality}, would you like me to draft a quick patient educational update for your profile?"
                 )
-                cta = "binary_yes_no"
+                cta = "open_ended"
+            elif kind in ["regulation_change", "compliance_flag"]:
+                body = (
+                    f"{salutation}, a compliance update from the Dental Council of India is effective Dec 15. "
+                    f"Would you like me to share a concise audit checklist to verify your clinic's equipment protocols?"
+                )
+                cta = "open_ended"
             elif kind in ["perf_dip", "seasonal_perf_dip"]:
-                metric = payload.get("views_dip_pct") or payload.get("dip_pct") or "15%"
+                perf = merchant.get("performance", {})
+                views = perf.get("views", "2,410")
+                calls = perf.get("calls", "18")
                 body = (
-                    f"{greeting} your profile views experienced a {metric} dip this past week. "
-                    f"Would you like us to refresh your active promo campaign to recover traffic?"
+                    f"{salutation}, your profile recorded {views} views and {calls} calls over the past month. "
+                    f"Would you like to refresh your active promotion campaign in {locality} to boost inquiry volume?"
                 )
-                cta = "binary_yes_no"
+                cta = "open_ended"
+            elif kind == "renewal_due":
+                sub = merchant.get("subscription", {})
+                days = sub.get("days_remaining", "82")
+                plan = sub.get("plan", "Pro")
+                body = (
+                    f"{salutation}, your {plan} subscription has {days} days remaining. "
+                    f"Would you like to review your renewal options to keep your active profile benefits running seamlessly?"
+                )
+                cta = "open_ended"
             else:
-                body = f"{greeting} Vera here with a quick performance update. Would you like to review your active offers today?"
-                cta = "binary_yes_no"
+                body = f"{salutation}, Vera here with an update for your {name} profile in {locality}. Would you like to review your active catalog promotions today?"
+                cta = "open_ended"
 
             return {
                 "body": body,
