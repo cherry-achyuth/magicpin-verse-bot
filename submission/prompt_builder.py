@@ -84,19 +84,31 @@ def build_user_prompt(
     payload = trigger.get("payload", {})
     scope = trigger.get("scope", "merchant")
 
+    # Locate featured digest item if top_item_id is specified
+    top_item_id = payload.get("top_item_id") or payload.get("digest_item_id")
+    featured_digest = None
+    if top_item_id:
+        for item in category.get("digest", []):
+            if item.get("id") == top_item_id:
+                featured_digest = item
+                break
+
     framing_instruction = get_trigger_framing(kind, payload, scope)
 
     context_summary = {
         "category_slug": category.get("slug"),
         "category_voice": category.get("voice"),
         "peer_stats": category.get("peer_stats"),
-        "digest": category.get("digest", [])[:2],
+        "featured_digest_item": featured_digest,
+        "all_digest_items": category.get("digest", [])[:3],
         "offer_catalog": category.get("offer_catalog", [])[:3],
         "merchant_name": merchant.get("identity", {}).get("name"),
         "owner_first_name": merchant.get("identity", {}).get("owner_first_name"),
         "locality": merchant.get("identity", {}).get("locality"),
         "languages": merchant.get("identity", {}).get("languages"),
         "performance": merchant.get("performance"),
+        "signals": merchant.get("signals", []),
+        "customer_aggregate": merchant.get("customer_aggregate", {}),
         "active_offers": [
             o for o in merchant.get("offers", []) if o.get("status") == "active"
         ],
@@ -123,7 +135,7 @@ def build_user_prompt(
 === TRIGGER FRAMING ===
 {framing_instruction}
 
-Compose the single structured JSON message response now.
+Compose the single structured JSON message response now. Ensure rich factual grounding, correct recipient salutation, and exactly one final CTA.
 """
     return user_prompt
 
@@ -131,30 +143,66 @@ Compose the single structured JSON message response now.
 def get_trigger_framing(kind: str, payload: Dict[str, Any], scope: str) -> str:
     # Dispatches specific framing instructions based on the trigger kind.
     framings = {
-        "research_digest": "Frame as an insightful industry digest update. Cite the source title/issue explicitly.",
-        "cde_opportunity": "Highlight practical continuing education or technique updates from recent digest literature.",
-        "regulation_change": "Inform the merchant of regulatory updates or safety compliance standards in their category.",
-        "perf_dip": f"Highlight performance drop using specific payload metric. Suggest actionable recovery offer.",
-        "seasonal_perf_dip": "Address seasonal performance dip with peer benchmark insights and active offer refresh.",
-        "perf_spike": "Celebrate performance spike with specific metrics. Recommend scaling current active offers.",
+        "research_digest": (
+            "Cite the specific publication name, issue date, and page/abstract citation (e.g. 'JIDA Oct 2026, p.14'). "
+            "Highlight the exact numerical trial findings (e.g. 3-month fluoride recall cuts caries recurrence 38% better). "
+            "Connect this finding directly to the merchant's high-risk patient cohort or clinical practice in their locality. "
+            "End with a low-friction, professional CTA asking if they want a draft patient-education WhatsApp or abstract summary."
+        ),
+        "cde_opportunity": (
+            "Highlight practical continuing education or technique updates from recent digest literature. "
+            "Mention the specific webinar/CDE topic, clinical relevance to their practice, and ask if they would like registration details."
+        ),
+        "regulation_change": (
+            "Inform the merchant of the exact regulatory standard or safety compliance deadline (e.g. DCI circular tightening IOPA dose limits from 1.5 to 1.0 mSv effective Dec 15). "
+            "Detail compliance impact (e.g. E-speed film/RVG sensor passes, D-speed does not). "
+            "End with a clear offer to share a concise audit checklist."
+        ),
+        "perf_dip": (
+            "Highlight the recent performance change using the merchant's exact views or calls delta numbers. "
+            "Suggest an actionable promotion step with their active catalog offers to boost inquiries. "
+            "End with a direct yes/no CTA to activate or test the campaign."
+        ),
+        "seasonal_perf_dip": (
+            "Address the seasonal trend using category benchmarks. Recommend refreshing active offers to capture demand. "
+            "End with a single low-friction action proposal."
+        ),
+        "perf_spike": (
+            "Celebrate the merchant's traffic spike with concrete performance metrics. "
+            "Recommend scaling up the best-performing offer to sustain momentum."
+        ),
         "milestone_reached": f"Congratulate merchant on reaching milestone ({payload.get('metric', 'views/calls')}).",
         "dormant_with_vera": "Re-engage dormant merchant with a high-value quick update or offer refresh ask.",
         "review_theme_emerged": f"Share positive/constructive theme emerging from recent reviews ({payload.get('theme', 'feedback')}).",
-        "competitor_opened": f"Alert merchant to local market changes in {payload.get('locality', 'their area')}.",
-        "festival_upcoming": f"Suggest special seasonal promo for upcoming festival ({payload.get('festival_name', 'upcoming event')}).",
-        "category_seasonal": "Highlight seasonal demand trends for specific services in this category.",
-        "ipl_match_today": "Leverage match day excitement with quick flash-deal or event special ask.",
-        "wedding_package_followup": "Suggest highlighting wedding packages and group bookings.",
-        "supply_alert": "Provide heads-up on inventory/supply trends or popular demand items.",
-        "gbp_unverified": "Remind merchant to verify their Google Business Profile to boost views and calls.",
-        "renewal_due": "Remind merchant about subscription renewal and highlight key performance gains.",
+        "competitor_opened": f"Alert merchant to local market changes in {payload.get('locality', 'their area')} with a proactive counter-offer.",
+        "festival_upcoming": f"Proactively suggest a festive promotion campaign for {payload.get('festival_name', 'the upcoming holiday')} tailored to their customer base.",
+        "category_seasonal": "Highlight seasonal demand trends for specific services in this category with a targeted offer recommendation.",
+        "ipl_match_today": (
+            "Leverage the match timing and expected delivery surge. Propose a specific match-day meal combo with active discounts. "
+            "End with a binary question asking to activate it immediately."
+        ),
+        "wedding_package_followup": "Suggest highlighting wedding packages and group bookings with seasonal advance booking slots.",
+        "supply_alert": (
+            "Provide an urgent heads-up on inventory/product supply shortages or batch recalls. "
+            "Advise checking current stock and end with an actionable check question."
+        ),
+        "gbp_unverified": "Remind merchant to verify their Google Business Profile to boost local discovery, views, and calls.",
+        "renewal_due": (
+            "Remind merchant of their subscription status and days remaining. "
+            "Highlight their total views, calls, and customer volume delivered to demonstrate ROI. "
+            "End with a clear, low-friction renewal question."
+        ),
         "curious_ask_due": "Ask a low-friction question about upcoming inventory or seasonal availability.",
-        "active_planning_intent": "Assist merchant with proactive campaign planning for next month.",
-        "recall_due": "Send polite recall reminder for checkup/cleaning based on last visit history.",
-        "customer_lapsed_soft": "Re-engage soft lapsed customer with a warm personal invitation or routine checkup.",
+        "active_planning_intent": "Assist merchant with proactive campaign planning for next month with specific package pricing.",
+        "recall_due": (
+            "If customer is present, compose as 'merchant_on_behalf' addressed to the customer. "
+            "Reference their last visit date, recall interval, and offer two specific preferred slots (e.g. weekday evenings) with the active service price. "
+            "If customer is absent, alert the merchant about their lapsed cohort and offer to draft recall reminders."
+        ),
+        "customer_lapsed_soft": "Re-engage soft lapsed customer warmly with preferred slot choices and special checkup offer.",
         "customer_lapsed_hard": "Re-engage long lapsed customer emphasizing convenient slots and friendly care.",
-        "appointment_tomorrow": "Send friendly appointment confirmation for tomorrow with slot details.",
-        "chronic_refill_due": "Remind patient/customer about regular prescription or care product refill.",
+        "appointment_tomorrow": "Send friendly appointment confirmation for tomorrow with slot details and clinic address.",
+        "chronic_refill_due": "Remind patient/customer about regular prescription or care product refill with doorstep delivery options.",
         "trial_followup": "Follow up warmly on recent first visit and ask about their experience.",
         "winback_eligible": "Offer a special returning service package to win back inactive clients.",
     }
