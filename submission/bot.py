@@ -82,6 +82,12 @@ async def push_context(req: ContextPushRequest):
             content=resp_data,
         )
 
+    if req.scope == "trigger":
+        supp_key = req.payload.get("suppression_key")
+        if supp_key:
+            conversation_store._sent_suppression_keys.discard(supp_key)
+        conversation_store._sent_suppression_keys.discard(f"{req.context_id}:{req.payload.get('merchant_id')}")
+
     return resp_data
 
 
