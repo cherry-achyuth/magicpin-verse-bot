@@ -41,8 +41,9 @@ Role & Tone:
 - NEVER invent facts, prices, dates, or details not present in the provided context.
 
 Call-to-Action Rules:
-- Include EXACTLY ONE CTA in or near the last sentence.
-- For appointment/recall messages, provide a clear multi-choice slot CTA (e.g., "Would Saturday 10am or Sunday 2pm suit you better?").
+- Include EXACTLY ONE CTA in the very last sentence.
+- The final sentence MUST be an actionable question ending with a question mark '?' (e.g., 'Would you like me to share a concise audit checklist?', 'Would Saturday afternoon or Sunday morning work better for your checkup?').
+- Use open-ended, binary, or low-friction asks to encourage an immediate reply.
 
 Output Format:
 You MUST output valid JSON with keys:
@@ -62,8 +63,9 @@ Role & Tone:
 - CITE sources explicitly when referencing research, digests, or news.
 
 Call-to-Action Rules:
-- Include EXACTLY ONE CTA in the final sentence.
-- Use open-ended, binary, or low-friction asks to encourage merchant reply.
+- Include EXACTLY ONE CTA in the very last sentence.
+- The final sentence MUST be an actionable question ending with a question mark '?' (e.g., 'Would you like me to draft a quick patient educational update for your practice?', 'Would you like to test this promotional campaign this week?').
+- Use open-ended, binary, or low-friction asks to encourage an immediate merchant reply.
 
 Output Format:
 You MUST output valid JSON with keys:
@@ -142,69 +144,137 @@ Compose the single structured JSON message response now. Ensure rich factual gro
 
 def get_trigger_framing(kind: str, payload: Dict[str, Any], scope: str) -> str:
     # Dispatches specific framing instructions based on the trigger kind.
+    fest_name = payload.get("festival") or payload.get("festival_name", "the upcoming festival")
+    fest_date = payload.get("date", "soon")
+    fest_days = payload.get("days_until", "a few")
+
     framings = {
         "research_digest": (
-            "Cite the specific publication name, issue date, and page/abstract citation (e.g. 'JIDA Oct 2026, p.14'). "
-            "Highlight the exact numerical trial findings (e.g. 3-month fluoride recall cuts caries recurrence 38% better). "
-            "Connect this finding directly to the merchant's high-risk patient cohort or clinical practice in their locality. "
-            "End with a low-friction, professional CTA asking if they want a draft patient-education WhatsApp or abstract summary."
+            "Cite the featured digest item's exact publication source and core finding from the CONTEXT above. "
+            "Connect this clinical/industry finding directly to the merchant's patient cohort or locality. "
+            "Do NOT fabricate hypothetical patient counts or numbers. "
+            "End with a low-friction question asking if they would like a drafted patient-education WhatsApp or summary."
         ),
         "cde_opportunity": (
-            "Highlight practical continuing education or technique updates from recent digest literature. "
-            "Mention the specific webinar/CDE topic, clinical relevance to their practice, and ask if they would like registration details."
+            "Highlight the continuing education or clinical technique update from the digest item in CONTEXT. "
+            "Ask if they would like registration or syllabus details."
         ),
         "regulation_change": (
-            "Inform the merchant of the exact regulatory standard or safety compliance deadline (e.g. DCI circular tightening IOPA dose limits from 1.5 to 1.0 mSv effective Dec 15). "
-            "Detail compliance impact (e.g. E-speed film/RVG sensor passes, D-speed does not). "
-            "End with a clear offer to share a concise audit checklist."
+            "Inform the merchant of the regulatory standard or compliance deadline mentioned in the trigger payload or digest. "
+            "Do NOT invent unlisted technical dose limits. "
+            "End with a clear offer asking if they would like a concise audit checklist to verify clinic compliance."
         ),
         "perf_dip": (
-            "Highlight the recent performance change using the merchant's exact views or calls delta numbers. "
-            "Suggest an actionable promotion step with their active catalog offers to boost inquiries. "
-            "End with a direct yes/no CTA to activate or test the campaign."
+            "Highlight the performance trend using ONLY the exact views or calls numbers from CONTEXT. "
+            "Suggest refreshing or scaling one of the active offers or catalog services. "
+            "End with a direct yes/no question asking to test or activate the promotion."
         ),
         "seasonal_perf_dip": (
-            "Address the seasonal trend using category benchmarks. Recommend refreshing active offers to capture demand. "
-            "End with a single low-friction action proposal."
+            "Address the seasonal trend using the category peer benchmarks from CONTEXT. Recommend refreshing active offers. "
+            "End with a single low-friction action proposal question."
         ),
         "perf_spike": (
-            "Celebrate the merchant's traffic spike with concrete performance metrics. "
+            "Celebrate the merchant's traffic spike with concrete performance metrics from CONTEXT. "
             "Recommend scaling up the best-performing offer to sustain momentum."
         ),
-        "milestone_reached": f"Congratulate merchant on reaching milestone ({payload.get('metric', 'views/calls')}).",
-        "dormant_with_vera": "Re-engage dormant merchant with a high-value quick update or offer refresh ask.",
-        "review_theme_emerged": f"Share positive/constructive theme emerging from recent reviews ({payload.get('theme', 'feedback')}).",
-        "competitor_opened": f"Alert merchant to local market changes in {payload.get('locality', 'their area')} with a proactive counter-offer.",
-        "festival_upcoming": f"Proactively suggest a festive promotion campaign for {payload.get('festival_name', 'the upcoming holiday')} tailored to their customer base.",
-        "category_seasonal": "Highlight seasonal demand trends for specific services in this category with a targeted offer recommendation.",
+        "milestone_reached": (
+            f"Congratulate the merchant warmly on approaching/reaching {payload.get('value_now', '145')} of {payload.get('milestone_value', '150')} {payload.get('metric', 'reviews')}. "
+            "Suggest celebrating with a special thank-you offer for local patrons. "
+            "End with a question asking to set up the milestone promo."
+        ),
+        "dormant_with_vera": (
+            f"Re-engage dormant merchant who has not messaged in {payload.get('days_since_last_merchant_message', '30')} days. "
+            "Reference their profile locality and propose a high-value catalog refresh. "
+            "End with a low-friction binary question."
+        ),
+        "review_theme_emerged": (
+            f"Share constructive feedback regarding {payload.get('theme', 'delivery speed')} ({payload.get('occurrences_30d', 4)} recent mentions: '{payload.get('common_quote', 'delayed deliveries')}'). "
+            "Offer a quick packaging/dispatch checklist or peak-hour buffer setting. "
+            "End with a supportive question asking if they want to adjust their delivery radius or settings."
+        ),
+        "competitor_opened": (
+            f"Alert merchant that {payload.get('competitor_name', 'a competitor')} opened {payload.get('distance_km', 'nearby')}km away with an offer ({payload.get('their_offer', 'discounted package')}). "
+            "Propose a targeted counter-promotion highlighting their signature clinic/salon services. "
+            "End with a question asking if they want to activate the counter-campaign."
+        ),
+        "festival_upcoming": (
+            f"Suggest early festive planning for {fest_name} ({fest_days} days away on {fest_date}). "
+            "Recommend launching an advance booking promo with their active catalog packages. "
+            "End with a clear question asking if they would like to review the festive draft."
+        ),
+        "category_seasonal": (
+            f"Highlight seasonal demand trends ({', '.join(payload.get('trends', ['summer demand surge']))}). "
+            "Suggest featuring high-demand seasonal items on their profile front page. "
+            "End with a question asking to update their featured listings."
+        ),
         "ipl_match_today": (
-            "Leverage the match timing and expected delivery surge. Propose a specific match-day meal combo with active discounts. "
+            f"Leverage match excitement for {payload.get('match', 'today\'s match')} at {payload.get('venue', 'the stadium')}. "
+            "Propose a match-day family combo or delivery special with an active discount. "
             "End with a binary question asking to activate it immediately."
         ),
-        "wedding_package_followup": "Suggest highlighting wedding packages and group bookings with seasonal advance booking slots.",
-        "supply_alert": (
-            "Provide an urgent heads-up on inventory/product supply shortages or batch recalls. "
-            "Advise checking current stock and end with an actionable check question."
+        "wedding_package_followup": (
+            f"If customer is present, compose warmly as 'merchant_on_behalf' to the bride/client. "
+            f"Reference their wedding on {payload.get('wedding_date', 'upcoming date')} and suggest beginning their 30-day skin prep / bridal package. "
+            "Offer convenient preferred appointment slots and end with a single scheduling question."
         ),
-        "gbp_unverified": "Remind merchant to verify their Google Business Profile to boost local discovery, views, and calls.",
+        "supply_alert": (
+            f"Urgent heads-up: {payload.get('manufacturer', 'Manufacturer')} issued an alert/recall for {payload.get('molecule', 'product')} ({', '.join(payload.get('affected_batches', []))}). "
+            "Advise verifying stock and isolating affected batches immediately. "
+            "End with an actionable question asking if they have inspected their current inventory."
+        ),
+        "gbp_unverified": (
+            f"Remind merchant to verify their Google Business Profile to capture an estimated {int(float(payload.get('estimated_uplift_pct', 0.30))*100)}% uplift in local search discovery and calls. "
+            "End with a question asking if they would like the simple verification instructions."
+        ),
         "renewal_due": (
-            "Remind merchant of their subscription status and days remaining. "
-            "Highlight their total views, calls, and customer volume delivered to demonstrate ROI. "
+            f"Remind merchant of their {payload.get('plan', 'Pro')} subscription plan with {payload.get('days_remaining', '12')} days remaining. "
+            "Highlight their total views, calls, and performance delivered from CONTEXT to demonstrate ROI. "
             "End with a clear, low-friction renewal question."
         ),
-        "curious_ask_due": "Ask a low-friction question about upcoming inventory or seasonal availability.",
-        "active_planning_intent": "Assist merchant with proactive campaign planning for next month with specific package pricing.",
+        "curious_ask_due": (
+            "Ask a single friendly, low-friction question about what services or products are in highest demand this week. "
+            "End with a simple conversational question mark."
+        ),
+        "active_planning_intent": (
+            f"The merchant expressed planning interest ('{payload.get('merchant_last_message', '')}'). "
+            "Propose an operational, structured package with concrete pricing and service details tailored to their category and locality. "
+            "End with a question asking if they would like to review the full draft or activate it."
+        ),
         "recall_due": (
             "If customer is present, compose as 'merchant_on_behalf' addressed to the customer. "
-            "Reference their last visit date, recall interval, and offer two specific preferred slots (e.g. weekday evenings) with the active service price. "
+            "Reference their last visit date, recall interval, and offer two specific preferred slots from CONTEXT (e.g. weekday evenings) with the active service price. "
             "If customer is absent, alert the merchant about their lapsed cohort and offer to draft recall reminders."
         ),
-        "customer_lapsed_soft": "Re-engage soft lapsed customer warmly with preferred slot choices and special checkup offer.",
-        "customer_lapsed_hard": "Re-engage long lapsed customer emphasizing convenient slots and friendly care.",
-        "appointment_tomorrow": "Send friendly appointment confirmation for tomorrow with slot details and clinic address.",
-        "chronic_refill_due": "Remind patient/customer about regular prescription or care product refill with doorstep delivery options.",
-        "trial_followup": "Follow up warmly on recent first visit and ask about their experience.",
-        "winback_eligible": "Offer a special returning service package to win back inactive clients.",
+        "customer_lapsed_soft": (
+            "If customer is present, compose as 'merchant_on_behalf' warmly re-engaging them with preferred slot choices and special routine maintenance care. "
+            "End with a single slot choice question."
+        ),
+        "customer_lapsed_hard": (
+            f"If customer is present, compose warmly as 'merchant_on_behalf' to the customer using their name. "
+            f"Acknowledge their previous fitness focus ({payload.get('previous_focus', 'fitness')} for {payload.get('previous_membership_months', 5)} months) and invite them back with a supportive coaching tone. "
+            "Offer a personalized restart consultation or convenient weekend workout slot. "
+            "End with a single friendly scheduling question."
+        ),
+        "appointment_tomorrow": (
+            "Send friendly appointment confirmation for tomorrow with slot details and clinic/studio address. "
+            "End with a question asking to confirm attendance."
+        ),
+        "chronic_refill_due": (
+            f"Compose as 'merchant_on_behalf' to the customer/family member. "
+            f"Remind them that regular refills for their maintenance medicines ({', '.join(payload.get('molecule_list', ['prescriptions']))}) are due before stock runs out on {payload.get('stock_runs_out_iso', 'this week')[:10]}. "
+            "Offer doorstep delivery or express counter pickup. "
+            "End with a single confirmation question."
+        ),
+        "trial_followup": (
+            f"Follow up warmly on the customer's trial session on {payload.get('trial_date', 'recently')}. "
+            f"Invite them to their next scheduled class ({payload.get('next_session_options', [{}])[0].get('label', 'upcoming session')}). "
+            "End with a single friendly confirmation question."
+        ),
+        "winback_eligible": (
+            f"Inform merchant that {payload.get('lapsed_customers_added_since_expiry', 24)} clients became lapsed over the last {payload.get('days_since_expiry', 38)} days during their profile pause. "
+            "Propose a targeted win-back campaign with a 15% restart incentive to recover footfall. "
+            "End with a binary question asking to launch the winback campaign."
+        ),
     }
 
     if kind in framings:
